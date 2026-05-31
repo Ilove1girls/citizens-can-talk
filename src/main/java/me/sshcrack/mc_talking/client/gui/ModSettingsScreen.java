@@ -7,6 +7,7 @@ import me.sshcrack.mc_talking.tts.ClientTtsEngine;
 import me.sshcrack.mc_talking.tts.KokoroModelDownloader;
 import me.sshcrack.mc_talking.tts.KokoroModelManager;
 import me.sshcrack.mc_talking.tts.ModelDownloader;
+import me.sshcrack.mc_talking.stt.WhisperModelDownloader;
 import me.sshcrack.mc_talking.tts.TtsModelManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -158,23 +159,32 @@ public class ModSettingsScreen extends Screen {
 
         CompletableFuture.runAsync(() -> {
             try {
-                // Phase 1: Piper + native libs (0% → 50%)
+                // Phase 1: Piper + native libs (0% → 40%)
                 ModelDownloader piperDownloader = new ModelDownloader();
                 piperDownloader.downloadAll(
-                        p -> progress = p.floatValue() * 0.5f,
+                        p -> progress = p.floatValue() * 0.4f,
                         s -> statusText = "[Piper] " + s
                 );
 
-                // Phase 2: Kokoro model (50% → 100%)
+                // Phase 2: Kokoro model (40% → 70%)
                 if (!KokoroModelManager.isModelReady()) {
                     KokoroModelDownloader kokoroDownloader = new KokoroModelDownloader();
                     kokoroDownloader.download(
-                            p -> progress = 0.5f + p.floatValue() * 0.5f,
+                            p -> progress = 0.4f + p.floatValue() * 0.3f,
                             s -> statusText = "[Kokoro] " + s
                     );
+                } else {
+                    progress = 0.7f;
                 }
+
+                // Phase 3: Whisper model (70% → 100%)
+                statusText = "[Whisper] Checking...";
+                WhisperModelDownloader whisperDownloader = new WhisperModelDownloader();
+                whisperDownloader.downloadIfMissing();
+                progress = 1.0f;
+                statusText = "[Whisper] Ready";
             } catch (Exception e) {
-                McTalking.LOGGER.error("[TTS] Download failed", e);
+                McTalking.LOGGER.error("[TTS/STT] Download failed", e);
                 statusText = "Error: " + e.getMessage();
             } finally {
                 isDownloading = false;
