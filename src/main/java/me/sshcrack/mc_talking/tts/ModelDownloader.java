@@ -94,16 +94,25 @@ public class ModelDownloader {
         Path extractDir = TtsModelManager.getEspeakDataPath().getParent();
         Files.createDirectories(extractDir);
 
-        // Use system tar (available on Windows 10+, macOS, Linux)
-        ProcessBuilder pb = new ProcessBuilder("tar", "-xjf", tarBz2.toAbsolutePath().toString(), "-C", extractDir.toAbsolutePath().toString());
-        pb.inheritIO();
-        Process process = pb.start();
-        int exit = process.waitFor();
-        if (exit != 0) {
-            throw new IOException("tar extraction failed with exit code " + exit);
-        }
-
+        extractTarBz2(tarBz2, extractDir);
         Files.deleteIfExists(tarBz2);
+    }
+
+    private void extractTarBz2(Path tarBz2, Path destDir) throws Exception {
+        try (java.io.InputStream fi = Files.newInputStream(tarBz2);
+             org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream bzIn = new org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(fi);
+             org.apache.commons.compress.archivers.tar.TarArchiveInputStream tarIn = new org.apache.commons.compress.archivers.tar.TarArchiveInputStream(bzIn)) {
+            org.apache.commons.compress.archivers.tar.TarArchiveEntry entry;
+            while ((entry = tarIn.getNextEntry()) != null) {
+                Path outPath = destDir.resolve(entry.getName());
+                if (entry.isDirectory()) {
+                    Files.createDirectories(outPath);
+                } else {
+                    Files.createDirectories(outPath.getParent());
+                    Files.copy(tarIn, outPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+        }
     }
 
     private void downloadAndExtractNativeLib() throws Exception {
