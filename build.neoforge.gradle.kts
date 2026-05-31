@@ -181,10 +181,10 @@ dependencies {
     jarJar(onnxRuntime)
 
     // JNA for direct native library calls (espeak-ng phonemization)
+    // NOT jarJar'd — PrismLauncher already provides JNA on the classpath
     val jna = "net.java.dev.jna:jna:5.14.0"
     implementation(jna)
     "additionalRuntimeClasspath"(jna)
-    jarJar(jna)
 }
 
 tasks.named<Jar>("jar") {
