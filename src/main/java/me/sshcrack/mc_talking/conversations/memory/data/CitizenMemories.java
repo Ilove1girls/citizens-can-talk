@@ -15,11 +15,11 @@ public class CitizenMemories {
     private static final String TAG_FACTS_KEY = "facts";
     private static final String TAG_EVENTS_KEY = "events";
     private static final String TAG_RELATIONSHIPS_KEY = "relationships";
-    private static final String TAG_SESSION_TOKEN = "gemini_session_token";
+
     private final List<String> facts = new ArrayList<>();
     private final List<String> events = new ArrayList<>();
     private final List<CitizenRelationshipMemory> relationships = new ArrayList<>();
-    private String sessionToken = "";
+
 
     public CitizenMemories() {
         // We do not initialize this memories because at first it is empty.
@@ -81,9 +81,6 @@ public class CitizenMemories {
         }
 
         tag.put(TAG_RELATIONSHIPS_KEY, relationshipsNbt);
-        if (sessionToken != null && !sessionToken.isBlank()) {
-            tag.putString(TAG_SESSION_TOKEN, sessionToken);
-        }
         return tag;
     }
 
@@ -108,17 +105,6 @@ public class CitizenMemories {
             CitizenRelationshipMemory relationship = new CitizenRelationshipMemory(relationshipTag);
             relationships.add(relationship);
         }
-        if (tag.contains(TAG_SESSION_TOKEN)) {
-            sessionToken = tag.getString(TAG_SESSION_TOKEN);
-        }
-    }
-
-    public String getSessionToken() {
-        return sessionToken == null ? "" : sessionToken;
-    }
-
-    public void setSessionToken(String token) {
-        this.sessionToken = token == null ? "" : token;
     }
 
     /**

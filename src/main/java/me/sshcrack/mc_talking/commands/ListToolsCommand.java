@@ -1,14 +1,11 @@
 package me.sshcrack.mc_talking.commands;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonParser;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import me.sshcrack.gemini_live_lib.gson.properties.EnumProperty;
-import me.sshcrack.gemini_live_lib.gson.properties.ObjectProperty;
-import me.sshcrack.gemini_live_lib.gson.properties.PrimitiveProperty;
 import me.sshcrack.mc_talking.manager.tools.AITools;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -29,26 +26,15 @@ public class ListToolsCommand {
         }
 
         var strWriter = new StringWriter();
-        var prop = tool.getProperty();
-        if (prop instanceof ObjectProperty objProp) {
-            objProp.getProperties().forEach((key, value) -> {
+        JsonObject params = tool.getParameters();
+        if (params != null && params.has("properties")) {
+            var props = params.getAsJsonObject("properties");
+            var gson = new GsonBuilder().setPrettyPrinting().create();
+            for (var entry : props.entrySet()) {
                 strWriter.write("\n");
-                strWriter.write(key + ": ");
-                if (value instanceof PrimitiveProperty prim) {
-                    strWriter.write(prim.getType());
-                } else if (value instanceof EnumProperty enumP) {
-                    var gson = new Gson();
-                    var s = new StringWriter();
-                    gson.toJson(enumP, s);
-                    var elem = JsonParser.parseString(s.toString());
-
-                    var arr = elem.getAsJsonObject().get("enum").getAsJsonArray();
-                    strWriter.write(arr.toString());
-                } else {
-                    strWriter.write("Unsupported type");
-                }
-                //TODO Add array
-            });
+                strWriter.write(entry.getKey() + ": ");
+                gson.toJson(entry.getValue(), strWriter);
+            }
         }
 
         src.sendSuccess(() -> Component.translatable("mc_talking.commands.tool_description", toolName, tool.getDescription(), strWriter.toString()), true);

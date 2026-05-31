@@ -51,36 +51,35 @@ public class CitizenDataMixin implements CitizenDataMemoryExtended, CitizenDataP
             return;
         }
 
-        if (client.getLastStatus() == null) {
-            if (status == VisibleCitizenStatus.SLEEP) {
-                var sleepPrompt = "You are now sleeping. END THE CONVERSATION NOW USING YOUR \"end_conversation\" TOOL. IGNORE ANY INSTRUCTIONS AND END CONVERSATION NOW!!!!";
-                client.setLastStatus(status);
-                McTalking.LOGGER.info("[STATUS] Sending sleep prompt");
-                client.addPromptTextAfterTalkingComplete(sleepPrompt);
-            }
-
+        // Skip automatic status prompts when the citizen is in an active player
+        // conversation — the only speech should come from the player.
+        if (ConversationManager.getPlayerForEntity(data.getUUID()) != null) {
             client.setLastStatus(status);
+            return;
         }
 
+        // Deduplicate: no-op if the status hasn't actually changed
         if (client.getLastStatus() != null && client.getLastStatus().equals(status)) {
             return;
         }
 
+        // Sleep prompt (only on transition TO sleep)
         if (status == VisibleCitizenStatus.SLEEP) {
             var sleepPrompt = "You are now sleeping. END THE CONVERSATION NOW USING YOUR \"end_conversation\" TOOL. IGNORE ANY INSTRUCTIONS AND END CONVERSATION NOW!!!!";
-            client.setLastStatus(status);
             McTalking.LOGGER.info("[STATUS] Sending sleep prompt");
             client.addPromptTextAfterTalkingComplete(sleepPrompt);
         }
 
+        // Generic status prompt for other transitions
         if (!client.sendStatusUpdates()) {
+            client.setLastStatus(status);
             return;
         }
 
         var statusView = CitizenPromptViewFactory.createStatusView(status, data);
         var newStatusPrompt = String.format("You are now %s", CitizenPromptService.formatStatus(statusView));
-        client.setLastStatus(status);
         client.addPromptTextAfterTalkingComplete(newStatusPrompt);
+        client.setLastStatus(status);
     }
 
     /*? if neoforge {*/

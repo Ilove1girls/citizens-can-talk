@@ -74,7 +74,7 @@ public class ConversationCreatorDevice extends Item {
         conversation.setOnStateChanged(newState -> {
             AiStatus newStatus = switch (newState) {
                 case GENERATING -> AiStatus.THINKING;
-                case PLAYING_AUDIO -> AiStatus.IN_CONVERSATION;
+                case PLAYING -> AiStatus.IN_CONVERSATION;
                 case ENDED -> AiStatus.NONE;
             };
 

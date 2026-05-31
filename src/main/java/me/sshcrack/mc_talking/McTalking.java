@@ -4,6 +4,8 @@ import com.mojang.logging.LogUtils;
 import me.sshcrack.mc_talking.config.McTalkingConfig;
 import me.sshcrack.mc_talking.manager.tools.AITools;
 import me.sshcrack.mc_talking.network.AiStatusPayload;
+import me.sshcrack.mc_talking.network.CitizenInterruptPayload;
+import me.sshcrack.mc_talking.network.CitizenSpeechPayload;
 import me.sshcrack.mc_talking.registry.ModItems;
 /*? if forge {*/
 /*import net.minecraftforge.client.ConfigScreenHandler;
@@ -15,11 +17,9 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 *//*?}*/
 /*? if neoforge {*/
 import net.neoforged.bus.api.IEventBus;
-import me.sshcrack.mc_talking.network.AiStatusPayload;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -78,6 +78,16 @@ public class McTalking {
         final var registrar = event.registrar("1");
         registrar.playToClient(AiStatusPayload.TYPE, AiStatusPayload.STREAM_CODEC, new DirectionalPayloadHandler<>(
                 (payload, ctx) -> ctx.enqueueWork(() -> McTalkingClient.updateAiStatus(payload.citizen(), payload.status())),
+                (a, b) -> {
+                }
+        ));
+        registrar.playToClient(CitizenSpeechPayload.TYPE, CitizenSpeechPayload.STREAM_CODEC, new DirectionalPayloadHandler<>(
+                (payload, ctx) -> ctx.enqueueWork(() -> me.sshcrack.mc_talking.client.ClientSpeechHandler.onCitizenSpeech(payload)),
+                (a, b) -> {
+                }
+        ));
+        registrar.playToClient(CitizenInterruptPayload.TYPE, CitizenInterruptPayload.STREAM_CODEC, new DirectionalPayloadHandler<>(
+                (payload, ctx) -> ctx.enqueueWork(() -> me.sshcrack.mc_talking.client.ClientSpeechHandler.onCitizenInterrupt(payload)),
                 (a, b) -> {
                 }
         ));

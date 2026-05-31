@@ -2,23 +2,19 @@ package me.sshcrack.mc_talking.conversations.memory;
 
 import com.google.gson.JsonSyntaxException;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
-import me.sshcrack.gemini_live_lib.misc.GeminiFlash;
-import me.sshcrack.gemini_live_lib.misc.UnexpectedResponseException;
 import me.sshcrack.mc_talking.McTalking;
 import me.sshcrack.mc_talking.config.McTalkingConfig;
-import me.sshcrack.mc_talking.duck.CitizenDataMemoryExtended;
 import me.sshcrack.mc_talking.conversations.memory.data.CitizenRelationshipChangeType;
 import me.sshcrack.mc_talking.conversations.memory.gson.GsonMemoryResponse;
+import me.sshcrack.mc_talking.deepseek.DeepSeekChatClient;
+import me.sshcrack.mc_talking.duck.CitizenDataMemoryExtended;
 import net.minecraft.server.MinecraftServer;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
-
-import me.sshcrack.mc_talking.config.McTalkingConfig;
 
 public class CitizenMemoryGenerator extends Thread {
     private static final String PROMPT = ("""
@@ -73,17 +69,23 @@ public class CitizenMemoryGenerator extends Thread {
     @Override
     public void run() {
         McTalking.LOGGER.debug("Starting memories generation for conversation: {}", conversation);
-        String apiKey = McTalkingConfig.INSTANCE.instance().geminiApiKey;
+        var config = McTalkingConfig.INSTANCE.instance();
+        String apiKey = config.deepseekApiKey;
+        String model = config.deepseekModel.isBlank() ? "deepseek-chat" : config.deepseekModel;
+        var client = new DeepSeekChatClient(apiKey, model);
+
+        var messages = List.of(
+                new DeepSeekChatClient.Message("system", PROMPT),
+                new DeepSeekChatClient.Message("user", conversation)
+        );
+
         String memoryString;
         try {
-            memoryString = GeminiFlash.sendSimpleFlashRequest(McTalkingConfig.FLASH_MODEL, apiKey, PROMPT, conversation);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            McTalking.LOGGER.debug("Memory generation thread was interrupted for conversation: {}", conversation);
-            return;
-        } catch (UnexpectedResponseException | IOException e) {
+            var response = client.chat(messages, null);
+            memoryString = response.content();
+        } catch (Exception e) {
             McTalking.LOGGER.error("Failed to generate memories for conversation: {}", conversation, e);
-            throw new RuntimeException(e);
+            return;
         }
 
         GsonMemoryResponse json;

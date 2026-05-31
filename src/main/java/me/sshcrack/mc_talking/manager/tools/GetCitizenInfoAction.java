@@ -3,10 +3,9 @@ package me.sshcrack.mc_talking.manager.tools;
 import com.google.gson.JsonObject;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
-import me.sshcrack.gemini_live_lib.gson.properties.ObjectProperty;
-import me.sshcrack.gemini_live_lib.gson.properties.PrimitiveProperty;
 import me.sshcrack.mc_talking.api.prompt.CitizenPromptService;
 import me.sshcrack.mc_talking.manager.CitizenPromptViewFactory;
+import me.sshcrack.mc_talking.schema.JsonSchemaBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -16,9 +15,9 @@ public class GetCitizenInfoAction extends FunctionAction {
         super(
                 "get_citizen_info",
                 "Get information about a specific citizen by their name. This can be something like outer appearance, their skills, their current saturation, job, family, work places, quests and more.",
-                new ObjectProperty(new HashMap<>() {{
-                    put("citizen_name", new PrimitiveProperty(PrimitiveProperty.Type.STRING, true));
-                }})
+                new JsonSchemaBuilder()
+                        .string("citizen_name", "The name of the citizen to look up", true)
+                        .build()
         );
     }
 

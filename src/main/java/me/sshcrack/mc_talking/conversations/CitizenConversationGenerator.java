@@ -1,28 +1,23 @@
 package me.sshcrack.mc_talking.conversations;
 
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
-import me.sshcrack.gemini_live_lib.misc.GeminiFlash;
-import me.sshcrack.gemini_live_lib.misc.GeminiTTS;
-import me.sshcrack.gemini_live_lib.misc.UnexpectedResponseException;
 import me.sshcrack.mc_talking.McTalking;
 import me.sshcrack.mc_talking.api.prompt.CitizenPromptService;
 import me.sshcrack.mc_talking.api.prompt.view.CitizenPromptView;
 import me.sshcrack.mc_talking.config.McTalkingConfig;
 import me.sshcrack.mc_talking.conversations.memory.CitizenMemoryGenerator;
+import me.sshcrack.mc_talking.deepseek.DeepSeekChatClient;
 import me.sshcrack.mc_talking.manager.CitizenPromptViewFactory;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
-
-import me.sshcrack.mc_talking.config.McTalkingConfig;
 
 public class CitizenConversationGenerator {
     private static final String CONVERSATION_SYSTEM_PROMPT = """
@@ -101,98 +96,46 @@ public class CitizenConversationGenerator {
             ```
             """;
 
-    private static GeminiTTS.RequestPayload getTTSPrompt(String conversation, List<GeminiTTS.RequestPayload.SpeakerVoiceConfig> speakerVoiceConfigs) {
-        GeminiTTS.RequestPayload payload = new GeminiTTS.RequestPayload();
-
-        GeminiTTS.RequestPayload.Content content = new GeminiTTS.RequestPayload.Content();
-
-        GeminiTTS.RequestPayload.Part part = new GeminiTTS.RequestPayload.Part();
-        part.text = conversation;
-
-        content.parts = List.of(part);
-        content.role = "user";
-
-        payload.contents = List.of(content);
-
-        GeminiTTS.RequestPayload.GenerationConfig generationConfig =
-                new GeminiTTS.RequestPayload.GenerationConfig();
-
-        generationConfig.responseModalities = List.of("audio");
-        generationConfig.temperature = 1.0;
-
-        GeminiTTS.RequestPayload.SpeechConfig speechConfig = new GeminiTTS.RequestPayload.SpeechConfig();
-
-        GeminiTTS.RequestPayload.MultiSpeakerVoiceConfig multiSpeakerVoiceConfig = new GeminiTTS.RequestPayload.MultiSpeakerVoiceConfig();
-        multiSpeakerVoiceConfig.speaker_voice_configs = speakerVoiceConfigs;
-
-        speechConfig.multi_speaker_voice_config = multiSpeakerVoiceConfig;
-
-        generationConfig.speech_config = speechConfig;
-
-        payload.generationConfig = generationConfig;
-
-        return payload;
-    }
-
-    private static GeminiFlash.GenerateContentRequest getFlashPrompt(String citizenInfo) {
-        GeminiFlash.GenerateContentRequest request = new GeminiFlash.GenerateContentRequest();
-
-        GeminiFlash.GenerateContentRequest.SystemInstruction systemInstruction = new GeminiFlash.GenerateContentRequest.SystemInstruction();
-        GeminiFlash.GenerateContentRequest.Part systemPart = new GeminiFlash.GenerateContentRequest.Part();
-        systemPart.text = CONVERSATION_SYSTEM_PROMPT;
-        systemInstruction.parts = List.of(systemPart);
-        request.system_instruction = systemInstruction;
-
-        GeminiFlash.GenerateContentRequest.Content content = new GeminiFlash.GenerateContentRequest.Content();
-        GeminiFlash.GenerateContentRequest.Part contentPart = new GeminiFlash.GenerateContentRequest.Part();
-        contentPart.text = citizenInfo;
-        content.parts = List.of(contentPart);
-        request.contents = content;
-
-        return request;
-    }
-
-    public static void generateConversation(List<AbstractEntityCitizen> conversationEntities, MinecraftServer server, Consumer<GeminiTTS.AudioChunk> chunkConsumer) throws ConversationGenerationException {
+    public static void generateConversation(List<AbstractEntityCitizen> conversationEntities, MinecraftServer server) throws ConversationGenerationException {
         StringBuilder citizenInfo = new StringBuilder();
         citizenInfo.append("-----\n");
 
-        List<GeminiTTS.RequestPayload.SpeakerVoiceConfig> speakerVoiceConfigs = new ArrayList<>();
         Map<UUID, String> interestedParties = new HashMap<>();
         conversationEntities.forEach(e -> interestedParties.put(e.getUUID(), e.getCitizenData().getName()));
 
         for (AbstractEntityCitizen entity : conversationEntities) {
             CitizenPromptView view = CitizenPromptViewFactory.create(entity.getCitizenData(), interestedParties, null);
             citizenInfo.append(CitizenPromptService.generateConversationalInfoPrompt(view)).append("\n-----\n");
-
-            var isFemale = view.female();
-            var voiceName = McTalkingConfig.INSTANCE.instance().currentAiModel.getRandomVoice(entity.getUUID(), isFemale);
-
-            var config = new GeminiTTS.RequestPayload.SpeakerVoiceConfig();
-
-            config.speaker = view.name();
-            config.voice_config = new GeminiTTS.RequestPayload.VoiceConfig();
-            config.voice_config.prebuilt_voice_config = new GeminiTTS.RequestPayload.PrebuiltVoiceConfig();
-            config.voice_config.prebuilt_voice_config.voice_name = voiceName;
-
-            speakerVoiceConfigs.add(config);
         }
 
         RawConversation conversation = generateConversationAndMemory(conversationEntities, citizenInfo, server);
 
-        String apiKey = McTalkingConfig.INSTANCE.instance().geminiApiKey;
-        try {
-            McTalking.LOGGER.info("Sending TTS generation request to Gemini TTS for conversation with {} citizens", conversationEntities.size());
-            GeminiTTS.streamGenerateAudioConversation(McTalkingConfig.TTS_MODEL, apiKey, getTTSPrompt(conversation.conversation(), speakerVoiceConfigs), chunkConsumer);
-        } catch (IOException | UnexpectedResponseException e) {
-            throw new ConversationGenerationException("Failed to generate conversation audio using Gemini TTS", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ConversationGenerationException("Conversation audio generation was interrupted", e);
+        // Send conversation lines to chat as text (TTS is future work)
+        String[] lines = conversation.conversation().split("\n");
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+
+            // Try to find which citizen is speaking
+            for (AbstractEntityCitizen citizen : conversationEntities) {
+                String name = citizen.getCitizenData().getName();
+                if (line.startsWith(name + ":")) {
+                    String msg = line.substring(name.length() + 1).trim();
+                    if (McTalkingConfig.INSTANCE.instance().showCitizenChat) {
+                        var component = Component.literal(name + ": ").append(Component.literal(msg));
+                        for (var player : server.getPlayerList().getPlayers()) {
+                            if (player.level() == citizen.level() && player.distanceTo(citizen) <= 32) {
+                                player.sendSystemMessage(component);
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
         }
 
-        //REVIEW: Maybe only save if the conversation has been finished fully
         var generator = conversation.generator();
-        if(generator != null)
+        if (generator != null)
             generator.scheduleOrSaveMemory();
     }
 
@@ -202,16 +145,22 @@ public class CitizenConversationGenerator {
 
     @NotNull
     private static RawConversation generateConversationAndMemory(List<AbstractEntityCitizen> conversationEntities, StringBuilder citizenInfo, MinecraftServer server) throws ConversationGenerationException {
-        String apiKey = McTalkingConfig.INSTANCE.instance().geminiApiKey;
+        var config = McTalkingConfig.INSTANCE.instance();
+        String apiKey = config.deepseekApiKey;
+        String model = config.deepseekModel.isBlank() ? "deepseek-chat" : config.deepseekModel;
+        var client = new DeepSeekChatClient(apiKey, model);
+
+        var messages = new ArrayList<DeepSeekChatClient.Message>();
+        messages.add(new DeepSeekChatClient.Message("system", CONVERSATION_SYSTEM_PROMPT));
+        messages.add(new DeepSeekChatClient.Message("user", citizenInfo.toString()));
+
         String rawConversationOutput;
         try {
-            McTalking.LOGGER.info("Sending conversation generation request to Gemini Flash for {} citizens", conversationEntities.size());
-            rawConversationOutput = GeminiFlash.sendFlashRequest(McTalkingConfig.FLASH_MODEL, apiKey, getFlashPrompt(citizenInfo.toString()));
-        } catch (IOException | UnexpectedResponseException e) {
-            throw new ConversationGenerationException("Failed to generate conversation using Gemini Flash", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ConversationGenerationException("Conversation generation was interrupted", e);
+            McTalking.LOGGER.info("[DeepSeek] Generating conversation for {} citizens", conversationEntities.size());
+            var response = client.chat(messages, null);
+            rawConversationOutput = response.content();
+        } catch (Exception e) {
+            throw new ConversationGenerationException("Failed to generate conversation using DeepSeek", e);
         }
 
         CitizenMemoryGenerator generator = null;

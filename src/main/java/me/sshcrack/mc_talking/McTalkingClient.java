@@ -1,7 +1,12 @@
 package me.sshcrack.mc_talking;
 
 import com.minecolonies.api.entity.citizen.AbstractCivilianEntity;
+import me.sshcrack.mc_talking.client.ClientSpeechHandler;
+import me.sshcrack.mc_talking.client.audio.CitizenAudioQueue;
+import me.sshcrack.mc_talking.client.gui.TitleScreenButtonHandler;
+import me.sshcrack.mc_talking.config.McTalkingConfig;
 import me.sshcrack.mc_talking.network.AiStatus;
+import me.sshcrack.mc_talking.tts.ClientTtsEngine;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -17,6 +22,8 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderNameTagEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.level.LevelEvent;
@@ -54,6 +61,18 @@ public class McTalkingClient {
     /*? if neoforge {*/
     public McTalkingClient(ModContainer container) {
         NeoForge.EVENT_BUS.register(this);
+        container.getEventBus().addListener(this::onClientSetup);
+    }
+
+    private void onClientSetup(FMLClientSetupEvent event) {
+        NeoForge.EVENT_BUS.register(TitleScreenButtonHandler.class);
+        ClientTtsEngine.getInstance().init();
+        CitizenAudioQueue.setThreadCount(McTalkingConfig.INSTANCE.instance().ttsNumThreads);
+    }
+
+    @SubscribeEvent
+    public void onClientTick(ClientTickEvent.Post event) {
+        CitizenAudioQueue.tick();
     }
     /*?}*/
 
@@ -71,6 +90,8 @@ public class McTalkingClient {
     public void onDisconnect(LevelEvent.Unload event) {
     /*?}*/
         aiStatus.clear();
+        ClientSpeechHandler.shutdown();
+        ClientTtsEngine.getInstance().shutdown();
     }
 
     /**

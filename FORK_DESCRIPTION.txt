@@ -1,0 +1,1 @@
+Talking Colonists fork — replaces Gemini Live with DeepSeek AI, local Piper/Kokoro TTS, and Whisper STT. Cheaper, self-hostable, voiced citizens for MineColonies.

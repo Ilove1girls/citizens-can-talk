@@ -47,6 +47,13 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+### Logs & crash reports ###
+*.log
+logs/
+crash-reports/
+hs_err_pid*
+*.hprof
+
 ### Jetbrains ###
 .idea/
 !.idea/icon.png

@@ -8,21 +8,19 @@ import com.minecolonies.api.colony.buildings.IBuilding;
 import com.minecolonies.api.colony.buildings.ICommonBuilding;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
 import com.minecolonies.api.util.constant.Constants;
-import me.sshcrack.gemini_live_lib.gson.properties.ObjectProperty;
-import me.sshcrack.gemini_live_lib.gson.properties.PrimitiveProperty;
+import me.sshcrack.mc_talking.schema.JsonSchemaBuilder;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.List;
 
 public class GetColonyAction extends FunctionAction {
     public GetColonyAction() {
         super("get_colony", "Gets information about the colony. If no colony ID is provided, it returns the colony the citizen is currently living in. This includes the name of the colony, buildings, maxCitizens, overallHappiness and other useful information.",
-                new ObjectProperty(new HashMap<>() {{
-                    put("colony_id", new PrimitiveProperty(PrimitiveProperty.Type.INTEGER, false));
-                }})
+                new JsonSchemaBuilder()
+                        .integer("colony_id", "Optional colony ID. Omit to use the citizen's current colony.", false)
+                        .build()
         );
     }
 

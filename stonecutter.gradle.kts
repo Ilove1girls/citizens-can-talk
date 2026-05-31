@@ -59,18 +59,5 @@ stonecutter parameters {
 }
 
 subprojects {
-    tasks.matching { it.name.startsWith("publish") }.configureEach {
-        doFirst {
-            val libraryDir = file("../gemini-live-library")
-            val confirmed = project.findProperty("geminiPublished") == "true"
-                || System.getenv("GEMINI_PUBLISHED") == "true"
-
-            if (libraryDir.exists() && !confirmed) {
-                throw GradleException(
-                    "gemini-live-library is still included locally! " +
-                        "Either publish it first, or confirm with -PgeminiPublished=true"
-                )
-            }
-        }
-    }
+    // Publish tasks can be configured here if needed
 }

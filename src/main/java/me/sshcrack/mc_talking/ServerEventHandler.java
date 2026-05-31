@@ -6,6 +6,9 @@ import me.sshcrack.mc_talking.commands.ListToolsCommand;
 import me.sshcrack.mc_talking.conversations.CitizenConversation;
 import me.sshcrack.mc_talking.item.CitizenTalkingDevice;
 import me.sshcrack.mc_talking.network.AiStatus;
+import me.sshcrack.mc_talking.stt.ServerSttEngine;
+import me.sshcrack.mc_talking.stt.SttModelManager;
+import me.sshcrack.mc_talking.stt.WhisperModelDownloader;
 import me.sshcrack.mc_talking.util.AiStatusHelper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -56,18 +59,35 @@ public class ServerEventHandler {
      */
     @SubscribeEvent
     public void onServerStart(ServerStartingEvent event) {
-        if (!McTalkingConfig.INSTANCE.instance().geminiApiKey.isEmpty()) {
+        var config = McTalkingConfig.INSTANCE.instance();
+
+        if (config.deepseekApiKey.isEmpty()) {
+            McTalking.LOGGER.error("======================");
+            McTalking.LOGGER.error("DeepSeek API key not set. McTalking is disabled.");
+            McTalking.LOGGER.error("======================");
             return;
         }
 
-        McTalking.LOGGER.error("======================");
-        McTalking.LOGGER.error("Gemini API key not set. McTalking is disabled.");
-        McTalking.LOGGER.error("======================");
+        // Initialize STT engine (server-side)
+        if (config.enableStt) {
+            if (!SttModelManager.isModelReady()) {
+                McTalking.LOGGER.info("[STT] Whisper model not found. Attempting auto-download...");
+                try {
+                    new WhisperModelDownloader().downloadIfMissing();
+                } catch (Exception e) {
+                    McTalking.LOGGER.error("[STT] Auto-download failed. Voice input will be disabled. " +
+                            "You can manually download the model from https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models", e);
+                }
+            }
+            ServerSttEngine.getInstance().init();
+        }
     }
 
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         ListToolsCommand.register(event.getDispatcher());
+        me.sshcrack.mc_talking.commands.ModDebugCommand.register(event.getDispatcher());
+        me.sshcrack.mc_talking.commands.ModChatCommand.register(event.getDispatcher());
     }
 
     /**
@@ -115,6 +135,7 @@ public class ServerEventHandler {
         tickCounter++;
 
         boolean doDistanceCheck = (tickCounter % 5 == 0);
+        boolean doFreeze = true; // Every tick — MineColonies AI fights back otherwise
         boolean doMumblingCheck = (tickCounter % McTalkingConfig.INSTANCE.instance().mumblingCheckIntervalTicks == 0);
         boolean doRandomConvCheck = McTalkingConfig.INSTANCE.instance().enableCitizenToCitizenConversation
                 && McTalkingConfig.INSTANCE.instance().enableRandomConversations
@@ -122,7 +143,7 @@ public class ServerEventHandler {
         boolean doContactCheck = McTalkingConfig.INSTANCE.instance().enableCitizenInitiatedContact
                 && (tickCounter % McTalkingConfig.INSTANCE.instance().citizenContactCheckIntervalTicks == 0);
 
-        if (!doDistanceCheck && !doMumblingCheck && !doRandomConvCheck && !doContactCheck) {
+        if (!doDistanceCheck && !doFreeze && !doMumblingCheck && !doRandomConvCheck && !doContactCheck) {
             return;
         }
 
@@ -145,6 +166,17 @@ public class ServerEventHandler {
                 UUID citizenId = ConversationManager.getPlayerConversationPartner(playerId);
                 if (citizenId != null) {
                     checkConversationDistance(player, citizenId);
+                }
+            }
+
+            // Freeze citizen every tick during conversation so they don't wander
+            if (doFreeze) {
+                UUID citizenId = ConversationManager.getPlayerConversationPartner(playerId);
+                if (citizenId != null) {
+                    AbstractEntityCitizen citizen = ConversationManager.getActiveEntityForPlayer(playerId);
+                    if (citizen != null && citizen.isAlive()) {
+                        freezeCitizenForConversation(citizen, player);
+                    }
                 }
             }
 
@@ -193,7 +225,28 @@ public class ServerEventHandler {
         double distanceSquared = player.distanceToSqr(activeEntity);
         if (distanceSquared > McTalkingConfig.INSTANCE.instance().maxConversationDistance * McTalkingConfig.INSTANCE.instance().maxConversationDistance) {
             ConversationManager.endConversation(player.getUUID(), true);
+            return;
         }
+    }
+
+    /**
+     * Aggressively freezes a citizen during conversation.
+     * Called every server tick because MineColonies AI will re-start pathfinding
+     * on its own update cycle otherwise.
+     */
+    private void freezeCitizenForConversation(AbstractEntityCitizen citizen, ServerPlayer player) {
+        // Stop pathfinding
+        citizen.getNavigation().stop();
+
+        // Zero horizontal velocity so existing momentum doesn't carry them forward
+        var vel = citizen.getDeltaMovement();
+        citizen.setDeltaMovement(0.0, vel.y, 0.0);
+
+        // Cancel any active move control input
+        citizen.getMoveControl().strafe(0.0F, 0.0F);
+
+        // Force look at player
+        citizen.getLookControl().setLookAt(player);
     }
 
     private void checkForMumblingCitizens(ServerPlayer player) {
@@ -228,7 +281,7 @@ public class ServerEventHandler {
      * <p>Only one citizen initiates contact per player per check to avoid audio overlap.</p>
      */
     private void checkForCitizenInitiatedContact(ServerPlayer player) {
-        if (McTalkingConfig.INSTANCE.instance().geminiApiKey.isEmpty()) return;
+        if (McTalkingConfig.INSTANCE.instance().deepseekApiKey.isEmpty()) return;
 
         double range = McTalkingConfig.INSTANCE.instance().mumblingDetectionRange;
         var aabb = player.getBoundingBox().inflate(range);
@@ -317,7 +370,7 @@ public class ServerEventHandler {
      * interrupting ongoing player conversations.</p>
      */
     private void checkForRandomConversations(MinecraftServer server) {
-        if (McTalkingConfig.INSTANCE.instance().geminiApiKey.isEmpty()) return;
+        if (McTalkingConfig.INSTANCE.instance().deepseekApiKey.isEmpty()) return;
 
         double range = McTalkingConfig.INSTANCE.instance().mumblingDetectionRange * 2;
 
@@ -366,7 +419,7 @@ public class ServerEventHandler {
                 conversation.setOnStateChanged(newState -> {
                     AiStatus status = switch (newState) {
                         case GENERATING -> AiStatus.THINKING;
-                        case PLAYING_AUDIO -> AiStatus.IN_CONVERSATION;
+                        case PLAYING -> AiStatus.IN_CONVERSATION;
                         case ENDED -> AiStatus.NONE;
                     };
                     AiStatusHelper.setAiStatusSynced(citizen, status);

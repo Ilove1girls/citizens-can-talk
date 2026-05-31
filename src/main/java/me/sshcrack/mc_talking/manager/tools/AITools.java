@@ -1,7 +1,7 @@
 package me.sshcrack.mc_talking.manager.tools;
 
-import me.sshcrack.gemini_live_lib.gson.BidiGenerateContentSetup;
 import me.sshcrack.mc_talking.config.McTalkingConfig;
+import me.sshcrack.mc_talking.deepseek.DeepSeekChatClient;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,34 +31,23 @@ public class AITools {
         return new ArrayList<>(registeredFunctions.keySet());
     }
 
-    public static List<BidiGenerateContentSetup.Tool> getEnabledTools(boolean isPlayerConversation) {
-        var list = new ArrayList<BidiGenerateContentSetup.Tool>();
-
-        var tool = new BidiGenerateContentSetup.Tool();
+    public static List<DeepSeekChatClient.Tool> getEnabledTools(boolean isPlayerConversation) {
+        var list = new ArrayList<DeepSeekChatClient.Tool>();
         var rawToolsDisabled = McTalkingConfig.INSTANCE.instance().disabledTools;
 
-        var functions = registeredFunctions
-                .values()
-                .stream();
-
+        var functions = registeredFunctions.values().stream();
         if (isPlayerConversation) {
             functions = Stream.concat(functions, playerConversationOnlyTools.values().stream());
         }
 
-        tool.functionDeclarations.addAll(
-                functions
-                        .filter(e -> !rawToolsDisabled.contains(e.getName()))
-                        .map(e -> {
-                            var declaration = new BidiGenerateContentSetup.Tool.FunctionDeclaration(e.getName(), e.getDescription());
-                            if (e.getProperty() != null)
-                                declaration.parameters = e.getProperty();
+        functions
+                .filter(e -> !rawToolsDisabled.contains(e.getName()))
+                .forEach(e -> list.add(new DeepSeekChatClient.Tool(
+                        e.getName(),
+                        e.getDescription(),
+                        e.getParameters()
+                )));
 
-                            return declaration;
-                        })
-                        .toList()
-        );
-
-        list.add(tool);
         return list;
     }
 

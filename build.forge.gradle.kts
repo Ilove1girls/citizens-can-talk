@@ -29,10 +29,6 @@ platform {
             curseforge = "minecolonies"
             forgeLikeVersionRange = "[${prop("deps.minecolonies_version")},)"
         }
-        required("gemini_live_lib") {
-            curseforge = "gemini-live-lib"
-            forgeLikeVersionRange = "[${prop("deps.gemini_live_lib_version")},)"
-        }
         required("voicechat") {
             curseforge = "simple-voice-chat"
             forgeLikeVersionRange = "[${voicechat_version},)"
@@ -165,8 +161,6 @@ dependencies {
 
     modImplementation("de.maxhenkel.voicechat:voicechat-api:${prop("deps.voicechat_api_version")}")
     modRuntimeOnly("maven.modrinth:simple-voice-chat:forge-${voicechat_version}")
-    modImplementation("me.sshcrack:gemini_live_lib:${prop("deps.gemini_live_lib_version")}-${prop("deps.minecraft")}-forge")
-
     modImplementation("com.ldtteam:minecolonies:${prop("deps.minecolonies_version")}")
     modRuntimeOnly("com.ldtteam:domum_ornamentum:${prop("deps.domum_version")}:universal")
     modRuntimeOnly("com.ldtteam:structurize:${prop("deps.structurize_version")}")

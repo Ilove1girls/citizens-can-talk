@@ -27,10 +27,7 @@ platform {
             curseforge = "minecolonies"
             forgeLikeVersionRange = "[${prop("deps.minecolonies_version")},)"
         }
-        required("gemini_live_lib") {
-            curseforge = "gemini-live-lib"
-            forgeLikeVersionRange = "[${prop("deps.gemini_live_lib_version")},)"
-        }
+
         required("voicechat") {
             curseforge = "simple-voice-chat"
             forgeLikeVersionRange = "[${voicechat_version},)"
@@ -161,7 +158,6 @@ dependencies {
 
     implementation("de.maxhenkel.voicechat:voicechat-api:${prop("deps.voicechat_api_version")}")
     runtimeOnly("maven.modrinth:simple-voice-chat:neoforge-${voicechat_version}")
-    implementation("me.sshcrack:gemini_live_lib:${prop("deps.gemini_live_lib_version")}-${prop("deps.minecraft")}-neoforge")
 
     implementation("com.ldtteam:minecolonies:${prop("deps.minecolonies_version")}")
     runtimeOnly("com.ldtteam:domum-ornamentum:${prop("deps.domum_version")}")
@@ -169,6 +165,23 @@ dependencies {
     runtimeOnly("com.ldtteam:blockui:${prop("deps.blockui_version")}")
 
     implementation("dev.isxander:yet-another-config-lib:${prop("deps.yacl_version")}+1.21.1-neoforge")
+    // STT is provided by sherpa-onnx JNI (same JAR as TTS)
+    // No additional STT dependency needed
+
+    // Sherpa-ONNX for local TTS (Piper model inference)
+    val sherpaOnnx = files(rootProject.file("libs/sherpa-onnx-v1.13.2.jar"))
+    implementation(sherpaOnnx)
+    "additionalRuntimeClasspath"(sherpaOnnx)
+
+    // ONNX Runtime for Kokoro TTS
+    val onnxRuntime = "com.microsoft.onnxruntime:onnxruntime:1.20.0"
+    implementation(onnxRuntime)
+    "additionalRuntimeClasspath"(onnxRuntime)
+
+    // JNA for direct native library calls (espeak-ng phonemization)
+    val jna = "net.java.dev.jna:jna:5.14.0"
+    implementation(jna)
+    "additionalRuntimeClasspath"(jna)
 }
 
 tasks.named("createMinecraftArtifacts") {

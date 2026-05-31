@@ -3,23 +3,20 @@ package me.sshcrack.mc_talking.manager.tools;
 import com.google.gson.JsonObject;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
-import me.sshcrack.gemini_live_lib.gson.properties.ObjectProperty;
-import me.sshcrack.gemini_live_lib.gson.properties.PrimitiveProperty;
+import me.sshcrack.mc_talking.schema.JsonSchemaBuilder;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
-
 public class DropItemAction extends FunctionAction {
 
     public DropItemAction() {
         super("drop_item", "Drops an item with the given count at the specified slot in your inventory. Use -1 to drop the entire stack (maximum count).",
-                new ObjectProperty(new HashMap<>() {{
-                    put("slot_index", new PrimitiveProperty(PrimitiveProperty.Type.INTEGER, true));
-                    put("count", new PrimitiveProperty(PrimitiveProperty.Type.INTEGER, true));
-                }})
+                new JsonSchemaBuilder()
+                        .integer("slot_index", "The inventory slot index to drop from", true)
+                        .integer("count", "How many items to drop. Use -1 for the full stack.", true)
+                        .build()
         );
     }
 

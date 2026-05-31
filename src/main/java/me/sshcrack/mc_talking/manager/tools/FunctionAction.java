@@ -6,7 +6,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
-import me.sshcrack.gemini_live_lib.gson.properties.Property;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NumericTag;
@@ -17,20 +16,20 @@ import org.jetbrains.annotations.Nullable;
 public abstract class FunctionAction {
     private final String name;
     private final String description;
-    private final Property property;
+    private final JsonObject parameters;
 
     public FunctionAction(String name, String description) {
         this(name, description, null);
     }
 
-    public FunctionAction(String name, String description, Property property) {
+    public FunctionAction(String name, String description, JsonObject parameters) {
         this.name = name;
         this.description = description;
-        this.property = property;
+        this.parameters = parameters;
     }
 
-    public Property getProperty() {
-        return property;
+    public JsonObject getParameters() {
+        return parameters;
     }
 
     public String getName() {

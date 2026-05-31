@@ -4,18 +4,15 @@ import com.google.gson.JsonObject;
 import com.minecolonies.api.colony.ICivilianData;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
-import me.sshcrack.gemini_live_lib.gson.properties.EnumProperty;
-import me.sshcrack.gemini_live_lib.gson.properties.ObjectProperty;
-import me.sshcrack.gemini_live_lib.gson.properties.PrimitiveProperty;
 import me.sshcrack.mc_talking.ConversationManager;
 import me.sshcrack.mc_talking.McTalking;
 import me.sshcrack.mc_talking.conversations.memory.data.CitizenRelationshipChangeType;
 import me.sshcrack.mc_talking.duck.CitizenDataMemoryExtended;
+import me.sshcrack.mc_talking.schema.JsonSchemaBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
-import java.util.HashMap;
 
 public class RecordRelationshipChange extends FunctionAction {
     public RecordRelationshipChange() {
@@ -24,15 +21,12 @@ public class RecordRelationshipChange extends FunctionAction {
                         so you can remember it later.
                         The change must be between -1.0 and 1.0.
                         """,
-                new ObjectProperty(new HashMap<>() {{
-                    put("citizen_name", new PrimitiveProperty(PrimitiveProperty.Type.STRING, false));
-                    put("change", new PrimitiveProperty(PrimitiveProperty.Type.NUMBER, true));
-                    put("type", new EnumProperty(Arrays.stream(CitizenRelationshipChangeType.values())
-                            .map(Enum::name)
-                            .toList(),
-                            true
-                    ));
-                }}));
+                new JsonSchemaBuilder()
+                        .string("citizen_name", "Name of the citizen. Omit to target the player.", false)
+                        .number("change", "Relationship change between -1.0 and 1.0", true)
+                        .enum_("type", "Type of relationship change",
+                                Arrays.stream(CitizenRelationshipChangeType.values()).map(Enum::name).toList(), true)
+                        .build());
     }
 
     @NotNull

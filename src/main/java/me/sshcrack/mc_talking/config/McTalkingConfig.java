@@ -28,9 +28,6 @@ import java.util.List;
  * Handles loading and managing configuration options.
  */
 public class McTalkingConfig {
-    public static final String FLASH_MODEL = "gemini-flash-lite-latest";
-    public static final String TTS_MODEL = "gemini-3.1-flash-tts-preview";
-
     public static final ConfigClassHandler<McTalkingConfig> INSTANCE = ConfigClassHandler.createBuilder(McTalkingConfig.class)
             .id(YACLPlatform.rl("mc_talking", "config"))
             .serializer(config -> GsonConfigSerializerBuilder.create(config)
@@ -39,16 +36,16 @@ public class McTalkingConfig {
                     .build())
             .build();
 
-    // API Configuration
+    // DeepSeek Configuration
     @AutoGen(category = "api")
     @StringField
-    @SerialEntry(comment = "This key is used to authenticate with the Gemini API. You can get one at https://aistudio.google.com/apikey")
-    public String geminiApiKey = "";
+    @SerialEntry(comment = "API key for DeepSeek. Get one at https://platform.deepseek.com/")
+    public String deepseekApiKey = "";
 
     @AutoGen(category = "api")
-    @EnumCycler
-    @SerialEntry(comment = "What kind of AI model to use. Right now, this is the only one Google offers")
-    public AvailableAI currentAiModel = AvailableAI.Flash3;
+    @StringField
+    @SerialEntry(comment = "DeepSeek model to use. Default: deepseek-chat")
+    public String deepseekModel = "deepseek-chat";
 
     // Language Configuration
     @AutoGen(category = "general")
@@ -78,11 +75,6 @@ public class McTalkingConfig {
     @SerialEntry(comment = "If true, citizens will be able to start conversations with each other without player involvement.")
     public boolean enableCitizenToCitizenConversation = true;
 
-    @AutoGen(category = "citizens", group = "citizen_to_citizen")
-    @EnumCycler
-    @SerialEntry(comment = "How citizen-to-citizen conversations are generated.\nLIVE_WEBSOCKETS (default/free): Two Gemini Live sessions feed audio to each other in real time - no Flash or TTS call needed.\nFLASH_TTS (higher quality): Flash generates a script, then Gemini TTS renders multi-speaker audio. This sounds more natural and has higher quality, but is limited to only 10 per DAY, so only use this if in paid tier")
-    public ConversationMode conversationMode = ConversationMode.LIVE_WEBSOCKETS;
-
     // Random citizen-to-citizen conversations
     @AutoGen(category = "citizens", group = "random_conversations")
     @TickBox
@@ -108,12 +100,12 @@ public class McTalkingConfig {
     @AutoGen(category = "general", group = "interaction")
     @DoubleField(min = 1.0, max = 100.0)
     @SerialEntry(comment = "Maximum distance the player can be from a citizen before the conversation is ended")
-    public double maxConversationDistance = 8.0;
+    public double maxConversationDistance = 16.0;
 
     @AutoGen(category = "general", group = "interaction")
     @EnumCycler
-    @SerialEntry(comment = "In which format the AI should respond. This can be text, audio or both.")
-    public ModalityModes modality = ModalityModes.AUDIO;
+    @SerialEntry(comment = "In which format the AI should respond. TEXT = chat only, AUDIO = voice only, TEXT_AND_AUDIO = both.")
+    public ModalityModes modality = ModalityModes.TEXT_AND_AUDIO;
 
     @AutoGen(category = "general")
     @ListGroup(valueFactory = ToolListFactory.class, controllerFactory = ToolListFactory.class)
@@ -124,6 +116,58 @@ public class McTalkingConfig {
     @TickBox
     @SerialEntry(comment = "If true, errors will be sent to players that have OP permissions. If false, errors will only be logged to the console.")
     public boolean sendErrorsToPlayers = true;
+
+    @AutoGen(category = "general")
+    @TickBox
+    @SerialEntry(comment = "If true, enables verbose debug logging and saves debug files (e.g. STT WAV dumps). Use only for troubleshooting — fills disk and logs quickly.")
+    public boolean debugMode = false;
+
+    @AutoGen(category = "general")
+    @TickBox
+    @SerialEntry(comment = "If true, citizen speech text will appear in the Minecraft chat. If false, citizens speak only via voice/TTS.")
+    public boolean showCitizenChat = false;
+
+    // TTS Configuration
+    @AutoGen(category = "general", group = "tts")
+    @TickBox
+    @SerialEntry(comment = "If true, citizen speech will be synthesized to audio using the downloaded TTS model.")
+    public boolean enableTts = true;
+
+    @AutoGen(category = "general", group = "tts")
+    @EnumCycler
+    @SerialEntry(comment = "TTS engine to use. PIPER = Sherpa-ONNX with LibriTTS model (default). KOKORO = ONNX Runtime with Kokoro model (higher quality, requires download).")
+    public TtsEngineMode ttsEngine = TtsEngineMode.PIPER;
+
+    @AutoGen(category = "general", group = "tts")
+    @DoubleSlider(min = 0.5, max = 2.0, step = 0.1)
+    @SerialEntry(comment = "Speech speed multiplier for TTS. 1.0 = normal speed.")
+    public double ttsSpeed = 1.0;
+
+    @AutoGen(category = "general", group = "tts")
+    @DoubleSlider(min = 0.0, max = 2.0, step = 0.1)
+    @SerialEntry(comment = "Volume multiplier for TTS audio. 1.0 = normal volume.")
+    public double ttsVolume = 1.0;
+
+    @AutoGen(category = "general", group = "tts")
+    @TickBox
+    @SerialEntry(comment = "If true, attempts to use CUDA for TTS inference when a GPU is available. Requires downloading the GPU runtime.")
+    public boolean ttsUseGpu = true;
+
+    @AutoGen(category = "general", group = "tts")
+    @IntField(min = 1, max = 16)
+    @SerialEntry(comment = "Number of CPU threads the TTS engine uses for synthesis. More threads = faster but heavier CPU usage. Default: 4. Requires game restart to apply.")
+    public int ttsNumThreads = 4;
+
+    // STT Configuration
+    @AutoGen(category = "general", group = "stt")
+    @TickBox
+    @SerialEntry(comment = "If true, enables Whisper-based speech-to-text for player voice input. Requires downloading the STT model. Disabling falls back to no voice input (text-only conversations).")
+    public boolean enableStt = true;
+
+    @AutoGen(category = "general", group = "stt")
+    @IntField(min = 1, max = 8)
+    @SerialEntry(comment = "Number of CPU threads the Whisper STT engine uses for inference. Default: 4.")
+    public int sttNumThreads = 4;
 
     // Proximity Mumbling
     @AutoGen(category = "citizens", group = "mumbling")
@@ -227,13 +271,8 @@ public class McTalkingConfig {
 
                     switch (key) {
                         case "gemini_key":
-                            INSTANCE.instance().geminiApiKey = val;
-                            break;
-                        case "ai_model":
-                            try {
-                                INSTANCE.instance().currentAiModel = AvailableAI.valueOf(val);
-                            } catch (Exception ignored) {
-                            }
+                            // Migrate old Gemini key to DeepSeek key (user can change later)
+                            INSTANCE.instance().deepseekApiKey = val;
                             break;
                         case "language":
                             INSTANCE.instance().language = val;

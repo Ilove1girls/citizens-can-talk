@@ -13,7 +13,8 @@ public enum ModalityModes implements NameableEnum {
     public List<String> getModalities() {
         return switch (this) {
             case TEXT -> List.of("TEXT");
-            case AUDIO, TEXT_AND_AUDIO -> List.of("AUDIO");
+            case AUDIO -> List.of("AUDIO");
+            case TEXT_AND_AUDIO -> List.of("TEXT", "AUDIO");
         };
     }
 

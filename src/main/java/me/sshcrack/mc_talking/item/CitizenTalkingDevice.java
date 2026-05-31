@@ -155,9 +155,9 @@ public class CitizenTalkingDevice extends Item {
 
         ServerPlayer serverPlayer = (ServerPlayer) player;
         UUID playerId = serverPlayer.getUUID();        // Check if API key is set
-        if (McTalkingConfig.INSTANCE.instance().geminiApiKey.isEmpty()) {
+        if (McTalkingConfig.INSTANCE.instance().deepseekApiKey.isEmpty()) {
             serverPlayer.sendSystemMessage(
-                    Component.literal("No Gemini API key set. Minecolonies Talking Citizens is disabled.")
+                    Component.literal("No DeepSeek API key set. Minecolonies Talking Citizens is disabled.")
                             .withStyle(ChatFormatting.RED)
             );
             return true; // Still prevent attack

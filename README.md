@@ -1,26 +1,73 @@
-You can interactively talk to citizens in your minecolonies just as if they were alive!
+# Citizens Can Talk
 
-## Setup Guide
-0. Install all dependencies ([Minecolonies](https://www.curseforge.com/minecraft/mc-mods/minecolonies), [Voicechat](https://modrinth.com/mod/simple-voice-chat) and [Gemini Live Lib](https://www.curseforge.com/minecraft/mc-mods/gemini-live-lib))
-1. Head to the [Google AI Studio](https://aistudio.google.com/u/0/apikey) and create an API key by pressing the blue button:
+A fork of [Talking Colonists](https://github.com/sshcrack/talking-colonists) by [sshcrack](https://github.com/sshcrack) that replaces the cloud-only AI backend with cheaper, self-hostable alternatives.
 
-![blue Create API button](https://github.com/sshcrack/talking-colonists/blob/neoforge-1.21.1/imgs/create_btn.png?raw=true)
-3. Copy the token
+Talk to your MineColonies citizens as if they were real people — now with local voices and affordable AI.
 
-4. Either the config file via text editor in `config/mc_talking-common.toml` or via the in-game GUI. Set the token and your desired [speaking language](https://ai.google.dev/gemini-api/docs/live#supported-languages):
- ```toml
- #This key is used to authenticate with the Gemini API. You can get one at https://aistudio.google.com/apikey
-gemini_key = "Put your API key here"
- ```
-(The free tier allows up to 3 citizens to be spoken at the same time)
+## What's Different?
+
+| | Original (Talking Colonists) | This Fork |
+|---|---|---|
+| **AI Backend** | Gemini Live API | DeepSeek Chat API (OpenAI-compatible) |
+| **Speech-to-Text** | Built into Gemini Live | OpenAI Whisper (or compatible) |
+| **Text-to-Speech** | None (text only) | **Piper** (local, fast) or **Kokoro** (local, natural) |
+| **Cost** | Gemini API usage | DeepSeek is ~10× cheaper; TTS/STT run locally for free |
+| **Voice Chat** | Required | Required (Simple Voice Chat) |
+
+## Setup
+
+### 1. Install Dependencies
+- [MineColonies](https://www.curseforge.com/minecraft/mc-mods/minecolonies)
+- [Simple Voice Chat](https://modrinth.com/mod/simple-voice-chat)
+- This mod
+
+### 2. Get API Keys
+
+**DeepSeek** (for citizen AI):
+1. Go to [platform.deepseek.com](https://platform.deepseek.com) and create an API key.
+2. In-game, run `/cct_config` or edit `config/yacl-mc_talking.json5` directly.
+3. Set `deepseekApiKey` to your key.
+
+**Whisper** (for speech-to-text):
+1. Get an OpenAI API key at [platform.openai.com](https://platform.openai.com).
+2. Set `whisperApiKey` in the same config.
+
+> **Tip:** Both services have very generous free tiers. DeepSeek in particular is extremely cheap — typically pennies per hour of gameplay.
+
+### 3. Configure TTS Engine (Optional)
+
+By default, the mod uses **Piper TTS** (fast, runs entirely offline). To switch:
+- Open the in-game config (`/cct_config`)
+- Change `TTS Engine` to `KOKORO` for more natural-sounding voices
+- Models download automatically on first use
+
+### 4. Toggle Features
+
+| Command | What it does |
+|---|---|
+| `/cct_debug on\|off` | Enable/disable debug logging |
+| `/cct_chat on\|off` | Show/hide citizen speech in Minecraft chat (voice always plays) |
 
 ## Usage
-Craft a Citizen Communication Device using a Book and Quill and a Redstone Torch (I would really appreciate it if someone could create a better texture for it):
-![Crafting Recipe](https://github.com/sshcrack/talking-colonists/raw/neoforge-1.21.1/imgs/crafting_recipe.png?raw=true)
-Then left-click on a citizen you want to talk to and something similar to this will show:
-![Citizen that can be talked to](https://github.com/sshcrack/talking-colonists/raw/neoforge-1.21.1/imgs/ingame.png?raw=true)
 
-Now the citizen will complain if they are unhappy or missing some resources, just talk right away!
+1. Craft a **Citizen Communication Device** (Book and Quill + Redstone Torch).
+2. Left-click a citizen while holding the device.
+3. Talk into voice chat — your speech is transcribed, sent to DeepSeek, and the citizen responds with a synthesized voice.
+
+Citizens remember conversations, have personalities tied to their jobs, and can get angry, scared, or happy depending on colony conditions.
+
+## Credits
+
+- **Original mod:** [Talking Colonists](https://github.com/sshcrack/talking-colonists) by [sshcrack](https://github.com/sshcrack) / Hendrik Lind
+- **AI:** [DeepSeek](https://deepseek.com)
+- **Local TTS:** [Piper](https://github.com/rhasspy/piper) (via sherpa-onnx) and [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) (ONNX Runtime)
+- **STT:** [OpenAI Whisper](https://openai.com/research/whisper)
+- **Libraries:** [MineColonies](https://github.com/ldtteam/minecolonies), [Simple Voice Chat](https://github.com/henkelmax/simple-voice-chat), [YACL](https://github.com/isXander/YetAnotherConfigLib)
+
+## License
+
+This fork is derived from the original Talking Colonists mod, which is licensed under the [CoFH "Don't Be a Jerk" License](LICENSE). All original code and assets remain the property of Hendrik Lind. Modifications in this fork are provided under the same license terms.
 
 ## Can I include this in my modpack?
-Yup
+
+Check with the original author first — the original mod says "Yup," but this fork adds additional dependencies and services that may not suit all pack types.

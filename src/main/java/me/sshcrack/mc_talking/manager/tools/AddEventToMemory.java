@@ -3,13 +3,10 @@ package me.sshcrack.mc_talking.manager.tools;
 import com.google.gson.JsonObject;
 import com.minecolonies.api.colony.IColony;
 import com.minecolonies.api.entity.citizen.AbstractEntityCitizen;
-import me.sshcrack.gemini_live_lib.gson.properties.ObjectProperty;
-import me.sshcrack.gemini_live_lib.gson.properties.PrimitiveProperty;
 import me.sshcrack.mc_talking.duck.CitizenDataMemoryExtended;
+import me.sshcrack.mc_talking.schema.JsonSchemaBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.HashMap;
 
 public class AddEventToMemory extends FunctionAction {
     public AddEventToMemory() {
@@ -17,9 +14,9 @@ public class AddEventToMemory extends FunctionAction {
                         Adds a message to your memory, so you remember it in ongoing conversations.
                         Use for important events only and be concise.
                         """,
-                new ObjectProperty(new HashMap<>() {{
-                    put("event", new PrimitiveProperty(PrimitiveProperty.Type.STRING, true));
-                }}));
+                new JsonSchemaBuilder()
+                        .string("event", "The event to remember", true)
+                        .build());
     }
 
     @NotNull
