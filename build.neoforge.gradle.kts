@@ -172,16 +172,19 @@ dependencies {
     val sherpaOnnx = files(rootProject.file("libs/sherpa-onnx-v1.13.2.jar"))
     implementation(sherpaOnnx)
     "additionalRuntimeClasspath"(sherpaOnnx)
+    jarJar(sherpaOnnx)
 
     // ONNX Runtime for Kokoro TTS
     val onnxRuntime = "com.microsoft.onnxruntime:onnxruntime:1.20.0"
     implementation(onnxRuntime)
     "additionalRuntimeClasspath"(onnxRuntime)
+    jarJar(onnxRuntime)
 
     // JNA for direct native library calls (espeak-ng phonemization)
     val jna = "net.java.dev.jna:jna:5.14.0"
     implementation(jna)
     "additionalRuntimeClasspath"(jna)
+    jarJar(jna)
 }
 
 tasks.named("createMinecraftArtifacts") {

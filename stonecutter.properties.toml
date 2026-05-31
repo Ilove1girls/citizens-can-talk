@@ -1,5 +1,5 @@
 mod.id = "mc_talking"
-mod.name = "MineColonies Talking Citizens"
+mod.name = "Citizens Can Talk"
 mod.group = "me.sshcrack.mc_talking"
 mod.version = "1.6.1"
 mod.channel_tag = ""
