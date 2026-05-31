@@ -21,8 +21,8 @@ import java.util.zip.GZIPInputStream;
 public class ModelDownloader {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
 
-    // TODO: Replace with your hosted URLs
-    public static String MODEL_URL = "";
+    public static String MODEL_URL =
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-lessac-high.tar.bz2";
     public static String NATIVE_BASE_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.2/";
     public static String ESPEAK_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/espeak-ng-data.tar.bz2";
 
