@@ -181,10 +181,10 @@ dependencies {
     jarJar(onnxRuntime)
 
     // Apache Commons Compress for cross-platform tar.bz2 extraction
+    // NOT jarJar'd — PrismLauncher already provides it on the classpath
     val commonsCompress = "org.apache.commons:commons-compress:1.26.0"
     implementation(commonsCompress)
     "additionalRuntimeClasspath"(commonsCompress)
-    jarJar(commonsCompress)
 
     // JNA for direct native library calls (espeak-ng phonemization)
     // NOT jarJar'd — PrismLauncher already provides JNA on the classpath
