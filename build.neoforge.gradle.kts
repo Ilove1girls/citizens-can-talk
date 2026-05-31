@@ -172,7 +172,7 @@ dependencies {
     val sherpaOnnx = files(rootProject.file("libs/sherpa-onnx-v1.13.2.jar"))
     implementation(sherpaOnnx)
     "additionalRuntimeClasspath"(sherpaOnnx)
-    jarJar(sherpaOnnx)
+    // Unpacked directly into mod JAR below (jarJar has issues with local files at runtime)
 
     // ONNX Runtime for Kokoro TTS
     val onnxRuntime = "com.microsoft.onnxruntime:onnxruntime:1.20.0"
@@ -185,6 +185,10 @@ dependencies {
     implementation(jna)
     "additionalRuntimeClasspath"(jna)
     jarJar(jna)
+}
+
+tasks.named<Jar>("jar") {
+    from(zipTree(rootProject.file("libs/sherpa-onnx-v1.13.2.jar")))
 }
 
 tasks.named("createMinecraftArtifacts") {
