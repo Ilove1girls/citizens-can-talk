@@ -4,6 +4,7 @@ import me.sshcrack.mc_talking.McTalking;
 import me.sshcrack.mc_talking.config.McTalkingConfig;
 import me.sshcrack.mc_talking.config.TtsEngineMode;
 import me.sshcrack.mc_talking.tts.ClientTtsEngine;
+import me.sshcrack.mc_talking.tts.EspeakNgNativeDownloader;
 import me.sshcrack.mc_talking.tts.KokoroModelDownloader;
 import me.sshcrack.mc_talking.tts.KokoroModelManager;
 import me.sshcrack.mc_talking.tts.ModelDownloader;
@@ -251,10 +252,13 @@ public class ModSettingsScreen extends Screen {
         boolean modelReady = TtsModelManager.isModelReady();
         boolean nativeReady = TtsModelManager.isNativeLibReady();
         boolean kokoroReady = KokoroModelManager.isModelReady();
+        boolean espeakNativeReady = EspeakNgNativeDownloader.isNativeLibPresent();
 
         drawStatusRow(graphics, "Piper Model + Config", modelReady, rowY);
         rowY += 20;
         drawStatusRow(graphics, "Sherpa-ONNX Runtime", nativeReady, rowY);
+        rowY += 20;
+        drawStatusRow(graphics, "Espeak-NG Native", espeakNativeReady, rowY);
         rowY += 20;
         drawStatusRow(graphics, "Kokoro Model", kokoroReady, rowY);
         rowY += 20;

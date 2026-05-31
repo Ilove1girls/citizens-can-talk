@@ -43,7 +43,8 @@ public class KokoroPhonemizer {
         // Try JNA fast path first
         try {
             String dataPath = TtsModelManager.getBasePath().toAbsolutePath().toString();
-            this.jna = new EspeakNgJna(dataPath);
+            String nativeLibDir = EspeakNgNativeDownloader.getExtractDir().toAbsolutePath().toString();
+            this.jna = new EspeakNgJna(dataPath, nativeLibDir);
             this.useJna = true;
             LOGGER.info("[KokoroPhonemizer] Using JNA direct call to libespeak-ng");
         } catch (Exception e) {

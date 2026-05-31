@@ -8,6 +8,7 @@ import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.PointerByReference;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -44,9 +45,57 @@ public class EspeakNgJna {
      * @throws RuntimeException     if espeak-ng initialization fails
      */
     public EspeakNgJna(String dataPath) {
+        this(dataPath, null);
+    }
+
+    /**
+     * Attempts to load libespeak-ng from an optional local native directory.
+     *
+     * @param dataPath       directory containing the {@code espeak-ng-data} folder
+     * @param nativeLibDir   optional directory containing the platform-specific
+     *                       native library (e.g. {@code espeak-ng.dll} on Windows)
+     */
+    public EspeakNgJna(String dataPath, String nativeLibDir) {
         System.setProperty("jna.encoding", "UTF-8");
-        String libName = Platform.isWindows() ? "espeak-ng" : "espeak-ng";
-        this.lib = Native.load(libName, EspeakNgLib.class);
+
+        // Add the mod's native directory to JNA's search path so downloaded
+        // libraries are found even when they are not on the system PATH.
+        if (nativeLibDir != null && !nativeLibDir.isEmpty()) {
+            String currentPath = System.getProperty("jna.library.path", "");
+            if (currentPath.isEmpty()) {
+                System.setProperty("jna.library.path", nativeLibDir);
+            } else if (!currentPath.contains(nativeLibDir)) {
+                System.setProperty("jna.library.path",
+                        nativeLibDir + File.pathSeparator + currentPath);
+            }
+            LOGGER.debug("[EspeakNgJna] jna.library.path = {}",
+                    System.getProperty("jna.library.path"));
+        }
+
+        // On Windows the upstream DLL may be named either "espeak-ng.dll"
+        // or "libespeak-ng.dll" depending on the build. Try both.
+        String[] libNames = Platform.isWindows()
+                ? new String[]{"espeak-ng", "libespeak-ng"}
+                : new String[]{"espeak-ng"};
+
+        UnsatisfiedLinkError lastError = null;
+        EspeakNgLib loaded = null;
+        for (String name : libNames) {
+            try {
+                loaded = Native.load(name, EspeakNgLib.class);
+                LOGGER.info("[EspeakNgJna] Loaded native library '{}'", name);
+                break;
+            } catch (UnsatisfiedLinkError e) {
+                lastError = e;
+                LOGGER.debug("[EspeakNgJna] Failed to load '{}', trying next...", name);
+            }
+        }
+
+        if (loaded == null) {
+            throw lastError != null ? lastError
+                    : new UnsatisfiedLinkError("Unable to load espeak-ng library");
+        }
+        this.lib = loaded;
 
         int rate = lib.espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 0, dataPath, 0);
         if (rate == -1) {

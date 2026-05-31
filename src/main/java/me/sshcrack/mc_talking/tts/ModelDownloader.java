@@ -44,6 +44,13 @@ public class ModelDownloader {
         }
         onProgress.accept(0.15);
 
+        // Download espeak-ng native library (needed for Kokoro phonemization)
+        if (!EspeakNgNativeDownloader.isNativeLibPresent()) {
+            onStatus.accept("Downloading espeak-ng native library...");
+            new EspeakNgNativeDownloader().downloadIfMissing(p -> {}, s -> {});
+        }
+        onProgress.accept(0.20);
+
         // Download native library JAR and extract .so/.dll
         if (!TtsModelManager.isNativeLibReady()) {
             onStatus.accept("Downloading native libraries...");
