@@ -47,17 +47,39 @@ public class SttModelManager {
         return getBasePath().resolve(NATIVE_DIR);
     }
 
+    // Expected file sizes from the official k2-fsa release.
+    // Used to detect corrupted/partial extractions.
+    private static final long MIN_ENCODER_SIZE = 29_000_000L;   // base.en-encoder.int8.onnx  ~29 MB
+    private static final long MIN_DECODER_SIZE = 130_000_000L;  // base.en-decoder.int8.onnx  ~130 MB
+    private static final long MIN_TOKENS_SIZE = 800_000L;       // base.en-tokens.txt         ~835 KB
+
     public static boolean isModelReady() {
-        return Files.exists(getEncoderPath())
-                && Files.exists(getDecoderPath())
-                && Files.exists(getTokensPath());
+        return isValidFile(getEncoderPath(), MIN_ENCODER_SIZE)
+                && isValidFile(getDecoderPath(), MIN_DECODER_SIZE)
+                && isValidFile(getTokensPath(), MIN_TOKENS_SIZE);
+    }
+
+    private static boolean isValidFile(Path path, long minSize) {
+        try {
+            return Files.exists(path) && Files.size(path) >= minSize;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static boolean isNativeLibReady() {
         Path nativePath = getNativeLibPath();
         Path jniLib = nativePath.resolve(getJniLibName());
         Path ortLib = nativePath.resolve(getOrtLibName());
-        return Files.exists(jniLib) && Files.exists(ortLib);
+        return isValidNativeLib(jniLib) && isValidNativeLib(ortLib);
+    }
+
+    private static boolean isValidNativeLib(Path path) {
+        try {
+            return Files.exists(path) && Files.size(path) > 0;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static String getJniLibName() {

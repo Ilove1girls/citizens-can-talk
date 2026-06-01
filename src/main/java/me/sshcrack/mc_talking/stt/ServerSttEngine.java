@@ -43,9 +43,23 @@ public class ServerSttEngine {
         Path tokensPath = SttModelManager.getTokensPath();
         Path nativePath = SttModelManager.getNativeLibPath();
 
-        if (!Files.exists(encoderPath) || !Files.exists(decoderPath) || !Files.exists(tokensPath)) {
-            LOGGER.warn("[STT] Whisper model files not found. Run the game client once to download native libs, " +
-                    "and ensure STT model files are in {}", SttModelManager.getWhisperPath());
+        // Log actual file sizes for debugging — if a file is truncated, the native loader will segfault
+        try {
+            LOGGER.info("[STT] Encoder: {} ({} bytes)", encoderPath, Files.size(encoderPath));
+            LOGGER.info("[STT] Decoder: {} ({} bytes)", decoderPath, Files.size(decoderPath));
+            LOGGER.info("[STT] Tokens:  {} ({} bytes)", tokensPath, Files.size(tokensPath));
+            LOGGER.info("[STT] Native:  {}", nativePath);
+        } catch (Exception e) {
+            LOGGER.warn("[STT] Could not read model file sizes", e);
+        }
+
+        if (!SttModelManager.isModelReady()) {
+            LOGGER.warn("[STT] Whisper model files missing or corrupted. Expected in: {}", SttModelManager.getWhisperPath());
+            return;
+        }
+
+        if (!SttModelManager.isNativeLibReady()) {
+            LOGGER.warn("[STT] Native libraries missing or corrupted. Expected in: {}", nativePath);
             return;
         }
 
@@ -83,8 +97,10 @@ public class ServerSttEngine {
         } catch (UnsatisfiedLinkError e) {
             LOGGER.error("[STT] Failed to load native library. Ensure sherpa-onnx native libs are in {}", nativePath, e);
             available = false;
-        } catch (Exception e) {
-            LOGGER.error("[STT] Initialization failed", e);
+        } catch (Throwable e) {
+            // Catch Throwable (not just Exception) because native code can throw Error subclasses
+            LOGGER.error("[STT] Initialization failed — model may be corrupted. Try deleting {} and re-downloading.",
+                    SttModelManager.getModelsPath(), e);
             available = false;
         }
     }
