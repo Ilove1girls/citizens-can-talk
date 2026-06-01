@@ -122,7 +122,11 @@ public class ModelDownloader {
         }
     }
 
-    private void downloadAndExtractNativeLib() throws Exception {
+    /**
+     * Downloads and extracts sherpa-onnx native libraries.
+     * Verifies JAR integrity before extracting.
+     */
+    public void downloadAndExtractNativeLib() throws Exception {
         String platform = detectPlatform();
         String jarName = "sherpa-onnx-native-lib-" + platform + "-v1.13.2.jar";
         String url = NATIVE_BASE_URL + jarName;
@@ -131,6 +135,15 @@ public class ModelDownloader {
 
         Path tempJar = jarPath.resolveSibling(jarPath.getFileName() + ".tmp");
         downloadWithProgress(url, tempJar, p -> {});
+
+        // Verify the JAR is readable before moving it to the final location
+        try {
+            new JarFile(tempJar.toFile()).close();
+        } catch (IOException e) {
+            Files.deleteIfExists(tempJar);
+            throw new IOException("Downloaded native JAR is corrupt (cannot open as ZIP)", e);
+        }
+
         Files.move(tempJar, jarPath, StandardCopyOption.REPLACE_EXISTING);
 
         Path extractDir = TtsModelManager.getNativeLibPath();

@@ -43,6 +43,9 @@ public class PiperTtsBackend implements TtsBackend {
             return;
         }
 
+        String provider = "cpu";
+        OfflineTtsConfig config = null;
+
         try {
             System.setProperty("sherpa_onnx.native.path", nativePath.toAbsolutePath().toString());
 
@@ -53,7 +56,7 @@ public class PiperTtsBackend implements TtsBackend {
                     .build();
 
             boolean useGpu = GpuDetector.hasNvidiaGpu() && TtsModelManager.hasGpuRuntime();
-            String provider = useGpu ? "cuda" : "cpu";
+            provider = useGpu ? "cuda" : "cpu";
 
             int numThreads = getConfiguredThreads();
             OfflineTtsModelConfig modelConfig = OfflineTtsModelConfig.builder()
@@ -62,7 +65,7 @@ public class PiperTtsBackend implements TtsBackend {
                     .setProvider(provider)
                     .build();
 
-            OfflineTtsConfig config = OfflineTtsConfig.builder()
+            config = OfflineTtsConfig.builder()
                     .setModel(modelConfig)
                     .build();
 
@@ -70,8 +73,20 @@ public class PiperTtsBackend implements TtsBackend {
             available = true;
             LOGGER.info("[PiperTTS] Initialized with provider: {}", provider);
         } catch (UnsatisfiedLinkError e) {
-            LOGGER.error("[PiperTTS] Failed to load native library", e);
-            available = false;
+            LOGGER.error("[PiperTTS] Failed to load native library — attempting auto-repair...", e);
+            if (config != null && attemptRepair(nativePath)) {
+                try {
+                    tts = new OfflineTts(config);
+                    available = true;
+                    LOGGER.info("[PiperTTS] Auto-repair successful, initialized with provider: {}", provider);
+                } catch (UnsatisfiedLinkError e2) {
+                    LOGGER.error("[PiperTTS] Auto-repair failed — native library still unloadable", e2);
+                    available = false;
+                }
+            } else {
+                LOGGER.error("[PiperTTS] Auto-repair failed — Piper TTS disabled");
+                available = false;
+            }
         } catch (Exception e) {
             LOGGER.error("[PiperTTS] Initialization failed", e);
             available = false;
@@ -112,6 +127,37 @@ public class PiperTtsBackend implements TtsBackend {
             tts = null;
         }
         available = false;
+    }
+
+    /**
+     * Auto-repair corrupted native libraries by deleting them and re-downloading.
+     * @return true if repair succeeded and libraries are ready
+     */
+    private boolean attemptRepair(Path nativePath) {
+        try {
+            LOGGER.info("[PiperTTS] Repair: deleting potentially corrupt native libraries...");
+            try (var stream = java.nio.file.Files.list(nativePath)) {
+                stream.forEach(p -> {
+                    String name = p.getFileName().toString();
+                    if (name.endsWith(".so") || name.endsWith(".dll") || name.endsWith(".dylib")) {
+                        try {
+                            java.nio.file.Files.deleteIfExists(p);
+                            LOGGER.info("[PiperTTS] Repair: deleted {}", p);
+                        } catch (java.io.IOException e) {
+                            LOGGER.warn("[PiperTTS] Repair: failed to delete {}", p, e);
+                        }
+                    }
+                });
+            }
+
+            LOGGER.info("[PiperTTS] Repair: re-downloading native libraries...");
+            new ModelDownloader().downloadAndExtractNativeLib();
+
+            return TtsModelManager.isNativeLibReady();
+        } catch (Exception e) {
+            LOGGER.error("[PiperTTS] Repair failed during re-download", e);
+            return false;
+        }
     }
 
     private static String getJniLibName() {

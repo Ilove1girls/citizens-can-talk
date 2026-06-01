@@ -82,7 +82,7 @@ public class ServerEventHandler {
                         McTalking.LOGGER.info("[STT] Whisper model download complete. Initializing STT engine...");
                         ServerSttEngine.getInstance().init();
                     } catch (Exception e) {
-                        McTalking.LOGGER.error("[STT] Auto-download failed. Voice input will be disabled. " +
+                        McTalking.LOGGER.error("[STT] Background download failed after retry. Voice input will be disabled. " +
                                 "You can manually download the model from https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models", e);
                     }
                 }, "mc_talking-whisper-download");

@@ -29,10 +29,11 @@ public class WhisperModelDownloader {
 
     /**
      * Downloads and extracts the Whisper model if not already present.
+     * Self-healing: retries once with cleanup on any failure.
      *
      * @param onProgress optional callback receiving 0.0–1.0 download progress
      * @param onStatus   optional callback receiving status text updates
-     * @throws Exception if download or extraction fails
+     * @throws Exception if download or extraction fails (after retry)
      */
     public void downloadIfMissing(Consumer<Float> onProgress, Consumer<String> onStatus) throws Exception {
         if (SttModelManager.isModelReady()) {
@@ -41,6 +42,16 @@ public class WhisperModelDownloader {
             return;
         }
 
+        try {
+            doDownload(onProgress, onStatus);
+        } catch (Exception e) {
+            LOGGER.error("[STT] Download/extraction failed — cleaning up and retrying once...", e);
+            cleanupPartialFiles();
+            doDownload(onProgress, onStatus);
+        }
+    }
+
+    private void doDownload(Consumer<Float> onProgress, Consumer<String> onStatus) throws Exception {
         Path modelsDir = SttModelManager.getModelsPath();
         Files.createDirectories(modelsDir);
 
@@ -68,6 +79,16 @@ public class WhisperModelDownloader {
             if (onStatus != null) onStatus.accept("Whisper model ready");
         } else {
             throw new IOException("Model extraction succeeded but expected files not found in " + SttModelManager.getWhisperPath());
+        }
+    }
+
+    private void cleanupPartialFiles() {
+        Path modelsDir = SttModelManager.getModelsPath();
+        try {
+            Files.deleteIfExists(modelsDir.resolve("sherpa-onnx-whisper-base.en.tar.bz2"));
+            Files.deleteIfExists(modelsDir.resolve("sherpa-onnx-whisper-base.en.tar.bz2.tmp"));
+        } catch (IOException e) {
+            LOGGER.warn("[STT] Failed to clean up partial Whisper files", e);
         }
     }
 
