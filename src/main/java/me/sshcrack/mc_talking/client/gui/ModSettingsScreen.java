@@ -8,6 +8,7 @@ import me.sshcrack.mc_talking.tts.EspeakNgNativeDownloader;
 import me.sshcrack.mc_talking.tts.KokoroModelDownloader;
 import me.sshcrack.mc_talking.tts.KokoroModelManager;
 import me.sshcrack.mc_talking.tts.ModelDownloader;
+import me.sshcrack.mc_talking.stt.SttModelManager;
 import me.sshcrack.mc_talking.stt.WhisperModelDownloader;
 import me.sshcrack.mc_talking.tts.TtsModelManager;
 import net.minecraft.client.Minecraft;
@@ -179,9 +180,13 @@ public class ModSettingsScreen extends Screen {
                 }
 
                 // Phase 3: Whisper model (70% → 100%)
-                statusText = "[Whisper] Checking...";
-                WhisperModelDownloader whisperDownloader = new WhisperModelDownloader();
-                whisperDownloader.downloadIfMissing();
+                if (!SttModelManager.isModelReady()) {
+                    WhisperModelDownloader whisperDownloader = new WhisperModelDownloader();
+                    whisperDownloader.downloadIfMissing(
+                            p -> progress = 0.7f + p * 0.3f,
+                            s -> statusText = "[Whisper] " + s
+                    );
+                }
                 progress = 1.0f;
                 statusText = "[Whisper] Ready";
             } catch (Exception e) {

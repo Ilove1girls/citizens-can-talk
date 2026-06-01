@@ -128,10 +128,16 @@ public class ModelDownloader {
         String url = NATIVE_BASE_URL + jarName;
         Path jarPath = TtsModelManager.getNativeJarPath();
         Files.createDirectories(jarPath.getParent());
-        downloadWithProgress(url, jarPath, p -> {});
+
+        Path tempJar = jarPath.resolveSibling(jarPath.getFileName() + ".tmp");
+        downloadWithProgress(url, tempJar, p -> {});
+        Files.move(tempJar, jarPath, StandardCopyOption.REPLACE_EXISTING);
 
         Path extractDir = TtsModelManager.getNativeLibPath();
         Files.createDirectories(extractDir);
+
+        // Clean old libraries before extracting to avoid corrupted/partial files
+        cleanOldNativeLibs(extractDir);
 
         try (JarFile jarFile = new JarFile(jarPath.toFile())) {
             java.util.Enumeration<JarEntry> entries = jarFile.entries();
@@ -150,6 +156,22 @@ public class ModelDownloader {
         }
 
         Files.deleteIfExists(jarPath);
+    }
+
+    private void cleanOldNativeLibs(Path nativeDir) throws IOException {
+        if (!Files.exists(nativeDir)) return;
+        try (var stream = Files.list(nativeDir)) {
+            stream.forEach(p -> {
+                String name = p.getFileName().toString();
+                if (name.endsWith(".so") || name.endsWith(".dll") || name.endsWith(".dylib")) {
+                    try {
+                        Files.deleteIfExists(p);
+                    } catch (IOException e) {
+                        LOGGER.warn("[ModelDownloader] Failed to delete old native lib: {}", p, e);
+                    }
+                }
+            });
+        }
     }
 
     private void downloadWithProgress(String url, Path dest, Consumer<Double> onProgress) throws Exception {

@@ -70,16 +70,25 @@ public class ServerEventHandler {
 
         // Initialize STT engine (server-side)
         if (config.enableStt) {
-            if (!SttModelManager.isModelReady()) {
-                McTalking.LOGGER.info("[STT] Whisper model not found. Attempting auto-download...");
-                try {
-                    new WhisperModelDownloader().downloadIfMissing();
-                } catch (Exception e) {
-                    McTalking.LOGGER.error("[STT] Auto-download failed. Voice input will be disabled. " +
-                            "You can manually download the model from https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models", e);
-                }
+            if (SttModelManager.isModelReady()) {
+                ServerSttEngine.getInstance().init();
+            } else {
+                McTalking.LOGGER.info("[STT] Whisper model not found. Starting background download...");
+                // Download on a background thread so server startup isn't blocked.
+                // A 198 MB download can take several minutes on slower connections.
+                Thread downloadThread = new Thread(() -> {
+                    try {
+                        new WhisperModelDownloader().downloadIfMissing();
+                        McTalking.LOGGER.info("[STT] Whisper model download complete. Initializing STT engine...");
+                        ServerSttEngine.getInstance().init();
+                    } catch (Exception e) {
+                        McTalking.LOGGER.error("[STT] Auto-download failed. Voice input will be disabled. " +
+                                "You can manually download the model from https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models", e);
+                    }
+                }, "mc_talking-whisper-download");
+                downloadThread.setDaemon(true);
+                downloadThread.start();
             }
-            ServerSttEngine.getInstance().init();
         }
     }
 

@@ -2,6 +2,7 @@ package me.sshcrack.mc_talking.tts;
 
 import net.minecraft.client.Minecraft;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -52,7 +53,15 @@ public class TtsModelManager {
         Path nativePath = getNativeLibPath();
         Path jniLib = nativePath.resolve(getJniLibName());
         Path ortLib = nativePath.resolve(getOrtLibName());
-        return Files.exists(jniLib) && Files.exists(ortLib);
+        return existsAndNonEmpty(jniLib) && existsAndNonEmpty(ortLib);
+    }
+
+    private static boolean existsAndNonEmpty(Path path) {
+        try {
+            return Files.exists(path) && Files.size(path) > 0;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     public static boolean hasGpuRuntime() {

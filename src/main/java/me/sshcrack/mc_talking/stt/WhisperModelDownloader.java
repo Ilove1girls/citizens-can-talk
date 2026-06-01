@@ -11,10 +11,12 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.function.Consumer;
 
 /**
  * Downloads the Whisper Base.EN model files for Sherpa-ONNX STT.
- * Server-friendly: no GUI, logs progress to console.
+ * Thread-safe: uses a temp file and atomic move to prevent corruption
+ * from concurrent downloads.
  */
 public class WhisperModelDownloader {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
@@ -28,11 +30,14 @@ public class WhisperModelDownloader {
     /**
      * Downloads and extracts the Whisper model if not already present.
      *
+     * @param onProgress optional callback receiving 0.0–1.0 download progress
+     * @param onStatus   optional callback receiving status text updates
      * @throws Exception if download or extraction fails
      */
-    public void downloadIfMissing() throws Exception {
+    public void downloadIfMissing(Consumer<Float> onProgress, Consumer<String> onStatus) throws Exception {
         if (SttModelManager.isModelReady()) {
             LOGGER.info("[STT] Whisper model already present");
+            if (onStatus != null) onStatus.accept("Whisper model already present");
             return;
         }
 
@@ -40,10 +45,19 @@ public class WhisperModelDownloader {
         Files.createDirectories(modelsDir);
 
         Path tarBz2 = modelsDir.resolve("sherpa-onnx-whisper-base.en.tar.bz2");
+        Path tempTarBz2 = modelsDir.resolve("sherpa-onnx-whisper-base.en.tar.bz2.tmp");
 
+        // If a previous download left a corrupt tar, delete it
+        Files.deleteIfExists(tarBz2);
+
+        if (onStatus != null) onStatus.accept("Downloading Whisper Base.EN model (~150 MB)...");
         LOGGER.info("[STT] Downloading Whisper Base.EN model (~150 MB)...");
-        downloadWithProgress(tarBz2);
+        downloadWithProgress(tempTarBz2, onProgress);
 
+        // Atomic move: prevents other threads from seeing a partial file
+        Files.move(tempTarBz2, tarBz2, StandardCopyOption.REPLACE_EXISTING);
+
+        if (onStatus != null) onStatus.accept("Extracting Whisper model...");
         LOGGER.info("[STT] Extracting model...");
         extractTarBz2(tarBz2, modelsDir);
 
@@ -51,12 +65,20 @@ public class WhisperModelDownloader {
 
         if (SttModelManager.isModelReady()) {
             LOGGER.info("[STT] Whisper model ready at {}", SttModelManager.getWhisperPath());
+            if (onStatus != null) onStatus.accept("Whisper model ready");
         } else {
             throw new IOException("Model extraction succeeded but expected files not found in " + SttModelManager.getWhisperPath());
         }
     }
 
-    private void downloadWithProgress(Path dest) throws Exception {
+    /**
+     * Convenience overload with no callbacks.
+     */
+    public void downloadIfMissing() throws Exception {
+        downloadIfMissing(null, null);
+    }
+
+    private void downloadWithProgress(Path dest, Consumer<Float> onProgress) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(MODEL_URL))
                 .header("Accept", "*/*")
                 .GET()
@@ -83,6 +105,9 @@ public class WhisperModelDownloader {
                         lastLoggedMb = mb;
                         LOGGER.info("[STT] Downloaded {} MB / {} MB", mb, totalBytes / (1024 * 1024));
                     }
+                    if (onProgress != null) {
+                        onProgress.accept((float) downloaded / totalBytes);
+                    }
                 }
             }
         }
@@ -99,7 +124,7 @@ public class WhisperModelDownloader {
                     Files.createDirectories(outPath);
                 } else {
                     Files.createDirectories(outPath.getParent());
-                    Files.copy(tarIn, outPath, StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(tarIn, outPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 }
             }
         }
