@@ -20,6 +20,7 @@ import java.util.zip.GZIPInputStream;
  */
 public class ModelDownloader {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
+    private static final Object NATIVE_DOWNLOAD_LOCK = new Object();
 
     public static String MODEL_URL =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-lessac-high.tar.bz2";
@@ -114,9 +115,20 @@ public class ModelDownloader {
                 Path outPath = destDir.resolve(entry.getName());
                 if (entry.isDirectory()) {
                     Files.createDirectories(outPath);
-                } else {
-                    Files.createDirectories(outPath.getParent());
-                    Files.copy(tarIn, outPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    continue;
+                }
+                Files.createDirectories(outPath.getParent());
+                long size = entry.getSize();
+                try (OutputStream out = Files.newOutputStream(outPath)) {
+                    byte[] buf = new byte[65536];
+                    long written = 0;
+                    int read;
+                    while (written < size && (read = tarIn.read(buf, 0, (int) Math.min(buf.length, size - written))) != -1) {
+                        if (read > 0) {
+                            out.write(buf, 0, read);
+                            written += read;
+                        }
+                    }
                 }
             }
         }
@@ -127,6 +139,12 @@ public class ModelDownloader {
      * Verifies JAR integrity before extracting.
      */
     public void downloadAndExtractNativeLib() throws Exception {
+        synchronized (NATIVE_DOWNLOAD_LOCK) {
+            doDownloadAndExtractNativeLib();
+        }
+    }
+
+    private void doDownloadAndExtractNativeLib() throws Exception {
         String platform = detectPlatform();
         String jarName = "sherpa-onnx-native-lib-" + platform + "-v1.13.2.jar";
         String url = NATIVE_BASE_URL + jarName;

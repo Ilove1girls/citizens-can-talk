@@ -20,6 +20,7 @@ import java.util.function.Consumer;
  */
 public class WhisperModelDownloader {
     private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
+    private static final Object DOWNLOAD_LOCK = new Object();
     private static final String MODEL_URL =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-base.en.tar.bz2";
 
@@ -42,12 +43,21 @@ public class WhisperModelDownloader {
             return;
         }
 
-        try {
-            doDownload(onProgress, onStatus);
-        } catch (Exception e) {
-            LOGGER.error("[STT] Download/extraction failed — cleaning up and retrying once...", e);
-            cleanupPartialFiles();
-            doDownload(onProgress, onStatus);
+        synchronized (DOWNLOAD_LOCK) {
+            // Double-check after acquiring lock
+            if (SttModelManager.isModelReady()) {
+                LOGGER.info("[STT] Whisper model appeared while waiting for lock");
+                if (onStatus != null) onStatus.accept("Whisper model already present");
+                return;
+            }
+
+            try {
+                doDownload(onProgress, onStatus);
+            } catch (Exception e) {
+                LOGGER.error("[STT] Download/extraction failed — cleaning up and retrying once...", e);
+                cleanupPartialFiles();
+                doDownload(onProgress, onStatus);
+            }
         }
     }
 
@@ -134,6 +144,10 @@ public class WhisperModelDownloader {
         }
     }
 
+    /**
+     * Extracts a tar.bz2 using manual buffered copy.
+     * Avoids Files.copy() which can hang on Windows with TarArchiveInputStream.
+     */
     private void extractTarBz2(Path tarBz2, Path destDir) throws Exception {
         try (java.io.InputStream fi = Files.newInputStream(tarBz2);
              org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream bzIn = new org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(fi);
@@ -143,10 +157,26 @@ public class WhisperModelDownloader {
                 Path outPath = destDir.resolve(entry.getName());
                 if (entry.isDirectory()) {
                     Files.createDirectories(outPath);
-                } else {
-                    Files.createDirectories(outPath.getParent());
-                    Files.copy(tarIn, outPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    continue;
                 }
+                Files.createDirectories(outPath.getParent());
+                long size = entry.getSize();
+                LOGGER.info("[STT] Extracting {} ({} bytes)...", entry.getName(), size);
+                long start = System.currentTimeMillis();
+
+                // Manual buffered copy — more reliable than Files.copy() on Windows
+                try (OutputStream out = Files.newOutputStream(outPath)) {
+                    byte[] buf = new byte[65536];
+                    long written = 0;
+                    int read;
+                    while (written < size && (read = tarIn.read(buf, 0, (int) Math.min(buf.length, size - written))) != -1) {
+                        if (read > 0) {
+                            out.write(buf, 0, read);
+                            written += read;
+                        }
+                    }
+                }
+                LOGGER.info("[STT] Extracted {} in {} ms", entry.getName(), System.currentTimeMillis() - start);
             }
         }
     }
