@@ -47,7 +47,7 @@ public class KokoroPhonemizer {
             this.jna = new EspeakNgJna(dataPath, nativeLibDir);
             this.useJna = true;
             LOGGER.info("[KokoroPhonemizer] Using JNA direct call to libespeak-ng");
-        } catch (Exception e) {
+        } catch (Throwable e) {
             LOGGER.warn("[KokoroPhonemizer] JNA unavailable ({}), falling back to subprocess", e.getMessage());
             this.espeakPath = findEspeakNg();
             if (this.espeakPath != null) {
