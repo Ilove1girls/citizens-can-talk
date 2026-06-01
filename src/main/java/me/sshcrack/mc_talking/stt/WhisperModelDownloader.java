@@ -145,39 +145,58 @@ public class WhisperModelDownloader {
     }
 
     /**
-     * Extracts a tar.bz2 using manual buffered copy.
-     * Avoids Files.copy() which can hang on Windows with TarArchiveInputStream.
+     * Extracts a tar.bz2 by first decompressing to a plain .tar, then extracting.
+     * Avoids the Windows hang caused by TarArchiveInputStream over BZip2CompressorInputStream.
      */
     private void extractTarBz2(Path tarBz2, Path destDir) throws Exception {
-        try (java.io.InputStream fi = Files.newInputStream(tarBz2);
-             org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream bzIn = new org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(fi);
-             org.apache.commons.compress.archivers.tar.TarArchiveInputStream tarIn = new org.apache.commons.compress.archivers.tar.TarArchiveInputStream(bzIn)) {
-            org.apache.commons.compress.archivers.tar.TarArchiveEntry entry;
-            while ((entry = tarIn.getNextEntry()) != null) {
-                Path outPath = destDir.resolve(entry.getName());
-                if (entry.isDirectory()) {
-                    Files.createDirectories(outPath);
-                    continue;
+        Path tempTar = tarBz2.resolveSibling(tarBz2.getFileName() + ".decompressed.tar");
+        try {
+            // Step 1: Decompress bz2 → plain tar
+            LOGGER.info("[STT] Decompressing .tar.bz2 to .tar...");
+            long decompStart = System.currentTimeMillis();
+            try (InputStream fi = Files.newInputStream(tarBz2);
+                 org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream bzIn = new org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(fi);
+                 OutputStream tarOut = Files.newOutputStream(tempTar)) {
+                byte[] buf = new byte[65536];
+                int read;
+                while ((read = bzIn.read(buf)) != -1) {
+                    tarOut.write(buf, 0, read);
                 }
-                Files.createDirectories(outPath.getParent());
-                long size = entry.getSize();
-                LOGGER.info("[STT] Extracting {} ({} bytes)...", entry.getName(), size);
-                long start = System.currentTimeMillis();
+            }
+            LOGGER.info("[STT] Decompressed in {} ms", System.currentTimeMillis() - decompStart);
 
-                // Manual buffered copy — more reliable than Files.copy() on Windows
-                try (OutputStream out = Files.newOutputStream(outPath)) {
-                    byte[] buf = new byte[65536];
-                    long written = 0;
-                    int read;
-                    while (written < size && (read = tarIn.read(buf, 0, (int) Math.min(buf.length, size - written))) != -1) {
-                        if (read > 0) {
-                            out.write(buf, 0, read);
-                            written += read;
+            // Step 2: Extract plain tar
+            LOGGER.info("[STT] Extracting .tar entries...");
+            try (InputStream fi = Files.newInputStream(tempTar);
+                 org.apache.commons.compress.archivers.tar.TarArchiveInputStream tarIn = new org.apache.commons.compress.archivers.tar.TarArchiveInputStream(fi)) {
+                org.apache.commons.compress.archivers.tar.TarArchiveEntry entry;
+                while ((entry = tarIn.getNextEntry()) != null) {
+                    Path outPath = destDir.resolve(entry.getName());
+                    if (entry.isDirectory()) {
+                        Files.createDirectories(outPath);
+                        continue;
+                    }
+                    Files.createDirectories(outPath.getParent());
+                    long size = entry.getSize();
+                    LOGGER.info("[STT] Extracting {} ({} bytes)...", entry.getName(), size);
+                    long start = System.currentTimeMillis();
+
+                    try (OutputStream out = Files.newOutputStream(outPath)) {
+                        byte[] buf = new byte[65536];
+                        long written = 0;
+                        int read;
+                        while (written < size && (read = tarIn.read(buf, 0, (int) Math.min(buf.length, size - written))) != -1) {
+                            if (read > 0) {
+                                out.write(buf, 0, read);
+                                written += read;
+                            }
                         }
                     }
+                    LOGGER.info("[STT] Extracted {} in {} ms", entry.getName(), System.currentTimeMillis() - start);
                 }
-                LOGGER.info("[STT] Extracted {} in {} ms", entry.getName(), System.currentTimeMillis() - start);
             }
+        } finally {
+            Files.deleteIfExists(tempTar);
         }
     }
 }
