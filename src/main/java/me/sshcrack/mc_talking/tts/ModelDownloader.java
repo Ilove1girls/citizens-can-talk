@@ -113,12 +113,23 @@ public class ModelDownloader {
             LOGGER.info("[ModelDownloader] Decompressing .tar.bz2 to .tar...");
             long decompStart = System.currentTimeMillis();
             try (InputStream fi = Files.newInputStream(tarBz2);
-                 org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream bzIn = new org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(fi);
+                 java.io.BufferedInputStream bis = new java.io.BufferedInputStream(fi, 256 * 1024);
+                 // decompressConcatenated=true is REQUIRED for large BZip2 files (>100MB).
+                 // The default constructor (false) causes hangs or premature EOF on large files.
+                 org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream bzIn = new org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(bis, true);
                  OutputStream tarOut = Files.newOutputStream(tempTar)) {
                 byte[] buf = new byte[65536];
+                long decompressed = 0;
+                long lastLoggedMb = -1;
                 int read;
                 while ((read = bzIn.read(buf)) != -1) {
                     tarOut.write(buf, 0, read);
+                    decompressed += read;
+                    long mb = decompressed / (1024 * 1024);
+                    if (mb > lastLoggedMb && mb % 50 == 0) {
+                        lastLoggedMb = mb;
+                        LOGGER.info("[ModelDownloader] Decompressed {} MB so far...", mb);
+                    }
                 }
             }
             LOGGER.info("[ModelDownloader] Decompressed in {} ms", System.currentTimeMillis() - decompStart);
